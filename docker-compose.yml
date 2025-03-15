@@ -24,7 +24,7 @@ services:
   ollama_proxy:
     build: .
     ports:
-      - "5000:5000"
+      - "11434:5000"
     volumes:
       - ./app.py:/app/app.py
       - ./config.json:/app/config.json
