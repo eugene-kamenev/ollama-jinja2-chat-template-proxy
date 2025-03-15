@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ./ollama:/root/.ollama
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - OLLAMA_DEBUG=1
+      - OLLAMA_LOG_LEVEL=DEBUG
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      - OLLAMA_ORIGINS=*
+  ollama_proxy:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app.py:/app/app.py
+      - ./config.json:/app/config.json
+      - ./templates:/app/templates
+    environment:
+      - FLASK_ENV=production

@@ -1,0 +1,32 @@
+{{ bos_token }}
+{%- set ns = namespace(lastRole='model') -%}
+{%- for message in messages -%}
+    {%- set role = message['role'] -%}
+    {%- if role == 'assistant' -%}
+        {%- set role = 'model' -%}
+    {%- else -%}
+        {%- set role = 'user' -%}
+    {%- endif -%}
+    {%- if role != ns.lastRole -%}
+        {%- if loop.index0 != 0 -%}
+            {{ '<end_of_turn>\n' }}
+        {%- endif -%}
+        {{ '<start_of_turn>' + role + '\n' }}
+    {%- else -%}
+        {{ '\n\n' }}
+    {%- endif -%}
+    {%- if message['content'] -%}
+        {{ message['content'] | trim }}
+    {%- elif message['tool_calls'] -%}
+        {{ message['tool_calls'] | tojson }}
+    {%- endif -%}
+    {%- if message['images'] and message['images'] is iterable -%}
+        {{ '\n<start_of_image>' }}
+        {{ message['images'] | join('<end_of_image>\n<start_of_image>') }}
+        {{ '<end_of_image>\n' }}
+    {%- endif -%}
+    {%- set ns.lastRole = role -%}
+{%- endfor -%}
+{%- if add_generation_prompt -%}
+    {{'<end_of_turn>\n<start_of_turn>model\n'}}
+{%- endif -%}

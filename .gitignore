@@ -1,0 +1,5 @@
+templates/__pycache__
+ollama/
+.history/
+.vscode/
+.idea/

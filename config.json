@@ -1,0 +1,7 @@
+[
+    {
+        "models": ["gemma3:1b"],
+        "template": "gemma3.jinja",
+        "plugin": "gemma3"
+    }
+]
