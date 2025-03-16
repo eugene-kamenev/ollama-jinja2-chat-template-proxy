@@ -86,8 +86,9 @@ def proxy_request(endpoint):
                 matches = re.findall(pattern, model, re.DOTALL)
                 logger.info(f"{model} {pattern}")
                 if len(matches) > 0:
-                   TEMPLATES[model] = template
                    config = template
+            if config.get('template') is not None:
+                TEMPLATES[model] = template
 
         if endpoint == 'api/chat':
             logger.info(f"Incoming request to: {endpoint}")
