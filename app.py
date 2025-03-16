@@ -88,7 +88,7 @@ def proxy_request(endpoint):
                 if len(matches) > 0:
                    config = template
             if config.get('template') is not None:
-                TEMPLATES[model] = template
+                TEMPLATES[model] = config
 
         if endpoint == 'api/chat':
             logger.info(f"Incoming request to: {endpoint}")
