@@ -147,8 +147,10 @@ def proxy_request(endpoint):
                     yield line + "\n"
                     if not next_allowed:
                         return
-                                
-        content = None if is_streaming else response.content
+        headers = response.headers.copy()
+        if "Transfer-Encoding" in headers and headers["Transfer-Encoding"].lower() == "chunked":
+            headers.pop("Transfer-Encoding", None)  # Remove Content-Length to avoid conflicts
+        content = response.content if not is_streaming else None
         if not is_streaming and new_body is not None:
             try:
                 ollama_response = json.loads(content)
@@ -171,7 +173,7 @@ def proxy_request(endpoint):
 
         return Response(generate() if is_streaming else content,
                         status=response.status_code, 
-                        headers=response.headers)
+                        headers=headers)
     
     except Exception as e:
         return Response(str(e), status=500)
