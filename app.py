@@ -1,6 +1,7 @@
 import logging
 import json
 import requests
+import re
 from jinja2 import Template, Environment, FileSystemLoader
 from flask import Flask, request, Response
 
@@ -24,19 +25,26 @@ def load_plugin(model):
         
 DEFAULT_PLUGIN = load_plugin("default")
 
-def reaload_config():
+def reload_config():
     global TEMPLATES
-    TEMPLATES = {}
+    reload_result = []
+    new_templates = {}
     with open("config.json", "r", encoding="utf-8") as config_file:
         config = json.load(config_file)
         for item in config:
+            models = "(" + "|".join(item['models']) + ")"
             try:
                 template = env.get_template(item['template'])
                 plugin = load_plugin(item.get("plugin")) if item.get("plugin") is not None else None
-                for model in item['models']:
-                    TEMPLATES[model] = {"template": template, "plugin": plugin}
+                new_templates[models] = {"template": template, "plugin": plugin}
+                reload_result.append(f"Template and plugin for {models} loaded")
             except Exception as e:
-                logger.error(f"Error loading template. {e}")
+                message = f"Error loading template or plugin for model {models}. {e}"
+                reload_result.append(message)
+                logger.error(message)
+    DEFAULT_PLUGIN = load_plugin("default")
+    TEMPLATES = new_templates
+    return reload_result
                 
 def copy(a, b, keys = []):
     for key, value in a.items():
@@ -58,8 +66,7 @@ def handle_chat_request(data, config):
 @app.route("/<path:endpoint>", methods=["GET", "POST", "PUT", "DELETE"])
 def proxy_request(endpoint):
     if endpoint == 'reload':
-        reaload_config()
-        return Response("{\"status\": \"OK\"}", status=200)
+        return Response(json.dumps(reload_config()), status=200)
     
     try:
         is_streaming = True
@@ -69,9 +76,19 @@ def proxy_request(endpoint):
             is_streaming = incoming_data.get("stream", True)
         
         new_body = None
+
+        model = incoming_data.get('model') if incoming_data else None
         
-        config = TEMPLATES.get(incoming_data.get('model'), {}) if incoming_data and endpoint == 'api/chat' else {}
-        
+        config = TEMPLATES.get(model, {}) if model and endpoint == 'api/chat' else None
+
+        if config is not None and config.get('template') is None:
+            for pattern, template in TEMPLATES.items():
+                matches = re.findall(pattern, model, re.DOTALL)
+                logger.info(f"{model} {pattern}")
+                if len(matches) > 0:
+                   TEMPLATES[model] = template
+                   config = template
+
         if endpoint == 'api/chat':
             logger.info(f"Incoming request to: {endpoint}")
             logger.info(f"Request Body: {incoming_data}")
@@ -94,8 +111,6 @@ def proxy_request(endpoint):
             headers={key: value for key, value in request.headers if key.lower() != "host"},
             stream=is_streaming
         )
-
-        headers = {key: value for key, value in response.headers.items() if key.lower() not in ["transfer-encoding", "content-encoding"]}
         
         def generate():
             message = ""
@@ -161,5 +176,5 @@ def proxy_request(endpoint):
         return Response(str(e), status=500)
 
 if __name__ == "__main__":
-    reaload_config()
+    reload_config()
     app.run(host="0.0.0.0", port=5000)

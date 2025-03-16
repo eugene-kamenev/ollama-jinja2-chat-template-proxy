@@ -1,7 +1,17 @@
 [
     {
-        "models": ["gemma3:1b"],
-        "template": "gemma3.jinja",
-        "plugin": "gemma3"
+        "models"    : ["gemma3"],
+        "template"  : "gemma3.jinja",
+        "plugin"    : "gemma3"
+    },
+    {
+        "models"    : ["qwq", "qwen2.5"],
+        "template"  : "qwen.jinja",
+        "plugin"    : "qwen"
+    },
+    {
+        "models"    : ["phi4-mini"],
+        "template"  : "phi4-mini.jinja",
+        "plugin"    : "phi4mini"
     }
 ]

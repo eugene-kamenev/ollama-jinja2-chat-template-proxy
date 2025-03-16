@@ -14,7 +14,7 @@ def parse_tool_calls(str):
     for match in matches:
         try:
             json_obj = json.loads(match)
-            extracted_objects.append(json_obj)
+            extracted_objects.append({"function": json_obj})
         except json.JSONDecodeError:
             pass
 

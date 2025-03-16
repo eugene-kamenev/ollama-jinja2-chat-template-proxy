@@ -1,3 +1,26 @@
+{%- macro tools_template(tools) -%}
+
+# LLM Tool Calling (Gemma3)
+
+## Process:
+
+1. **Parse:** Identify user intent. Extract relevant entities (numbers, keywords, parameters). Determine contextual information.
+2. **Select:** Match extracted intent and entities to available tools. Support simultaneous invocation of multiple tools when appropriate.
+3. **Tool Call:** You can call tools if you respond in this format `[{"name": "<tool-name>", "arguments": {"arg1": "value1", "arg2": "value2", ...}}, ...]`
+4. **Tool Result:** content inside `<tool_call_result></tool_call_result>` tags, ordered. Extract and integrate the tool outputs into a **natural-language response**.
+
+## Available Tools Definitions:
+
+{% for tool in tools -%}
+`{"name": "{{ tool.function.name }}", "description": "{{ tool.function.description }}", "parameters": {{ tool.function.parameters.properties | tojson }}}`
+{% endfor -%}
+{%- endmacro -%}
+{%- macro tool_template(function) -%}
+{"type": "function", "function": {{ function | tojson }}}
+{%- endmacro -%}
+{%- macro tool_call_template(function) -%}
+{"name": "{{ function['name'] }}", "arguments": {{ function['arguments'] | tojson }}}
+{%- endmacro -%}
 {{ bos_token }}
 {%- set ns = namespace(lastRole='model') -%}
 {%- for message in messages -%}
@@ -13,12 +36,20 @@
         {%- endif -%}
         {{ '<start_of_turn>' + role + '\n' }}
     {%- else -%}
-        {{ '\n\n' }}
+        {{ '\n' }}
     {%- endif -%}
-    {%- if message['content'] -%}
-        {{ message['content'] | trim }}
+    {%- if message['role'] == 'tool' -%}
+        <tool_call_result>{{ message['content'] }}</tool_call_result>
     {%- elif message['tool_calls'] -%}
-        {{ message['tool_calls'] | tojson }}
+        {%- for tool_call in message.tool_calls %}
+            {{- tool_call_template(tool_call.function) }}
+            {{- '\n' }}
+        {%- endfor %}
+    {%- elif message['content'] -%}
+        {{ message['content'] | trim }}
+    {%- endif -%}
+    {%- if loop.index0 == 0 and tools -%}
+        {{- '\n---\n' + tools_template(tools) + '\n---\n' }}
     {%- endif -%}
     {%- if message['images'] and message['images'] is iterable -%}
         {{ '\n<start_of_image>' }}

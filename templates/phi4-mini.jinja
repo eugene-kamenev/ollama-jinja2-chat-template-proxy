@@ -1,0 +1,30 @@
+{%- for message in messages -%}
+    {{ '<|' + message['role'] + '|>' }}
+    {%- if message['role'] == 'tool' %}
+        <|tool_response|>{{ message['content'] }}<|/tool_response|>
+    {%- else -%}
+        {{ message['content'] }}
+    {%- endif -%}
+    {%- if message['role'] == 'system' and tools is not none -%}
+        {%- for tool in tools -%}
+            <|tool|>{{- (tool | tojson) }}<|/tool|>
+        {%- endfor %}
+    {%- endif %}
+    {%- if message['tool_calls'] -%}
+        {%- for tool_call in message['tool_calls'] %}
+            {%- if tool_call.function is defined %}
+                {%- set tool_call = tool_call.function %}
+            {%- endif %}
+            {{- '\n<|tool_call|>\n{"name": "' }}
+            {{- tool_call.name }}
+            {{- '", "arguments": ' }}
+            {{- tool_call.arguments | tojson }}
+            {{- '}\n<|/tool_call|>' }}
+        {%- endfor %}
+    {%- endif -%}
+    {{- '<|end|>' -}}
+ {% endfor %}
+ {% if add_generation_prompt %}{{ '<|assistant|>' }}
+    {% else %}
+ {{ eos_token }}
+ {% endif %}
