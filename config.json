@@ -5,7 +5,17 @@
         "plugin"    : "gemma3"
     },
     {
-        "models"    : ["qwq", "qwen2.5"],
+        "models"    : ["qwq"],
+        "template"  : "qwq.jinja",
+        "plugin"    : "qwq"
+    },
+    {
+        "models"    : ["deepseek-r1"],
+        "template"  : "deepseek-r1.jinja",
+        "plugin"    : "deepseekr1"
+    },
+    {
+        "models"    : ["qwen2.5"],
         "template"  : "qwen.jinja",
         "plugin"    : "qwen"
     },

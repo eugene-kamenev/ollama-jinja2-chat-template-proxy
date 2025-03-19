@@ -18,8 +18,14 @@
     {%- if message.role in ["user", "system"] and not loop.first %}
         {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>\n' }}
     {%- elif message.role == "assistant" %}
-        {{- '<|im_start|>assistant\n' }}
-        {%- message.content %}
+        {{- '<|im_start|>assistant' }}
+        {%- set content = message.content %}
+        {%- if not loop.last %}
+            {%- set content = message.content.split('</think>')[-1].lstrip('') %}
+        {%- endif %}
+        {%- if content %}
+            {{- '\n' + content }}
+        {%- endif %}
         {%- for tool_call in message.tool_calls %}
             {%- if tool_call.function is defined %}
                 {%- set tool_call = tool_call.function %}
@@ -45,5 +51,5 @@
 {%- endfor %}
 
 {%- if add_generation_prompt %}
-    {{- '<|im_start|>assistant\n' }}
+    {{- '<|im_start|>assistant\n<think>\n' }}
 {%- endif %}

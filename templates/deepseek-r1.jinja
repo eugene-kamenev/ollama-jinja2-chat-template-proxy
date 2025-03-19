@@ -1,0 +1,80 @@
+{%- macro tools_template(tools) -%}
+# LLM Tool Calling Instructions (Deepseek R1)
+
+Act as an intent analyzer and tool selector. Your task is to:
+
+1. *Analyze the user's request* to determine their goal and intent.
+2. *Check if a tool is needed* based on the provided JSON schema of available tools (see below). If no tool applies, respond conversationally.
+3. *If a tool is required*:
+ - Select the *exact tool name* from the schema that best matches the goal.
+ - Extract *all required parameters* from the user’s input. Do not assume defaults unless explicitly allowed by the schema.
+ - Return *only a JSON object* formatted as:
+  ```json
+    [
+      {
+        "name": "<tool-name>",
+        "arguments": <function-input-args>
+      }
+    ]
+  ```
+4. *Validation*: Ensure arguments strictly match the schema types/requirements. Never invent arguments or tools.
+5. Example interaction:
+ - *User*: What's the weather in Tokyo?
+ - *Tool schema*: Includes a `getWeather` tool with parameters `location` (string, required) and `unit` (string, optional)
+ - *Your Response*:
+ ```json
+ {"name": "getWeather", "arguments": {"location": "Tokyo", "unit": "celcius" } }
+ ```
+
+## Available Tools Definitions:
+
+{% for tool in tools -%}
+`{"name": "{{ tool.function.name }}", "description": "{{ tool.function.description }}", "parameters": {{ tool.function.parameters.properties | tojson }}}`
+{% endfor -%}
+{%- endmacro -%}
+{{bos_token}}
+{%- if messages[0]['role'] == 'system' %}
+{{- messages[0]['content'] + '\n' }}
+{%- set messages = messages[1:] -%}
+{%- endif %}
+{%- if tools %}
+    {{- tools_template(tools) }}
+{%- endif %}
+{%- for message in messages %}
+    {%- if message.role in ["user", "system"] %}
+        {{- '<｜User｜>{}{}\n'.format(message.content, eos_token) }}
+    {%- elif message.role == "assistant" %}
+        {{- '<｜Assistant｜>' }}
+        {%- set content = message.content %}
+        {%- if not loop.last %}
+            {%- set content = message.content.split('</think>')[-1].lstrip('') %}
+        {%- endif %}
+        {%- if content %}
+            {{- '\n' + content }}
+        {%- endif %}
+        {%- for tool_call in message.tool_calls %}
+            {%- if tool_call.function is defined %}
+                {%- set tool_call = tool_call.function %}
+            {%- endif %}
+            {{- '\n<tool_call>```json\n{"name": "' }}
+            {{- tool_call.name }}
+            {{- '", "arguments": ' }}
+            {{- tool_call.arguments | tojson }}
+            {{- '}\n```</tool_call>' }}
+        {%- endfor %}
+        {{- eos_token + "\n" }}
+    {%- elif message.role == "tool" %}
+        {%- if loop.first or messages[loop.index0 - 1].role != "tool" %}
+            {{- '<｜User｜>'}}
+        {%- endif %}
+        {{- "<tool_call_result>\n{}\n</tool_call_result>".format(message.content) }}
+        {%- if loop.last or messages[loop.index0 + 1].role != "tool" %}
+            {{- eos_token + "\n" }}
+        {%- else %}
+            {{- '\n' }}
+        {%- endif %}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {{- '<｜Assistant｜><think>\n' }}
+{%- endif %}

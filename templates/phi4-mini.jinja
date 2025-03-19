@@ -1,11 +1,12 @@
 {%- for message in messages -%}
-    {{ '<|' + message['role'] + '|>' }}
-    {%- if message['role'] == 'tool' %}
-        <|tool_response|>{{ message['content'] }}<|/tool_response|>
+    {{ '<|' + message['role'] + '|>\n' }}
+    {%- if message['role'] == 'tool' -%}
+        {{ '<|tool_response|>\n' + message['content'] + '\n<|/tool_response|>' }}
     {%- else -%}
         {{ message['content'] }}
     {%- endif -%}
     {%- if message['role'] == 'system' and tools is not none -%}
+        {{ '\nYou can use tools to help with responses. **Tool Calls:** You can call tools if you respond in this format: `[{"name": "<tool-name>", "arguments": {"arg1": "value1", "arg2": "value2", ...}}, ...]`\n' }}
         {%- for tool in tools -%}
             <|tool|>{{- (tool | tojson) }}<|/tool|>
         {%- endfor %}
@@ -22,9 +23,9 @@
             {{- '}\n<|/tool_call|>' }}
         {%- endfor %}
     {%- endif -%}
-    {{- '<|end|>' -}}
+    {{- '<|end|>\n' -}}
  {% endfor %}
- {% if add_generation_prompt %}{{ '<|assistant|>' }}
-    {% else %}
+ {%- if add_generation_prompt -%}{{ '<|assistant|>\n' }}
+    {%- else -%}
  {{ eos_token }}
  {% endif %}

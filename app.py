@@ -97,9 +97,10 @@ def proxy_request(endpoint):
             if raw_request:
                 new_body = {
                     "raw"       : True,
-                    "prompt"    : raw_request
+                    "prompt"    : raw_request,
+                    "stream"    : is_streaming,
                 }
-                copy(incoming_data, new_body, ['model', 'format', 'keep_alive', 'options', 'stream'])
+                copy(incoming_data, new_body, ['model', 'format', 'keep_alive', 'options'])
                 logger.info(f"Modified request: {new_body}")
                 endpoint = 'api/generate'
         
@@ -117,6 +118,8 @@ def proxy_request(endpoint):
             message = ""
             next_allowed = True
             for chunk in response.iter_lines():
+                if not next_allowed:
+                    return
                 if chunk:
                     line = chunk.decode("utf-8")
                     if new_body is not None and incoming_data is not None:
@@ -145,11 +148,13 @@ def proxy_request(endpoint):
                                 
                         line = json.dumps(chunk_message, ensure_ascii=False)
                     yield line + "\n"
-                    if not next_allowed:
-                        return
+
+
         headers = response.headers.copy()
-        if "Transfer-Encoding" in headers and headers["Transfer-Encoding"].lower() == "chunked":
-            headers.pop("Transfer-Encoding", None)  # Remove Content-Length to avoid conflicts
+        if not is_streaming and "Transfer-Encoding" in headers and headers["Transfer-Encoding"].lower() == "chunked":
+            headers.pop("Transfer-Encoding", None)  # This is fine for non-streaming responses
+        if is_streaming:
+            headers.pop("Content-Length", None)  # Remove Content-Length for streaming responses
         content = response.content if not is_streaming else None
         if not is_streaming and new_body is not None:
             try:
@@ -174,7 +179,6 @@ def proxy_request(endpoint):
         return Response(generate() if is_streaming else content,
                         status=response.status_code, 
                         headers=headers)
-    
     except Exception as e:
         return Response(str(e), status=500)
 

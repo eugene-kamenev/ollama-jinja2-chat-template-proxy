@@ -1,22 +1,37 @@
 {%- macro tools_template(tools) -%}
+# Gemma Tool Calling Instructions
 
-# LLM Tool Calling (Gemma3)
+Act as an intent analyzer and tool selector. Your task is to:
 
-## Process:
-
-1. **Parse:** Identify user intent. Extract relevant entities (numbers, keywords, parameters). Determine contextual information.
-2. **Select:** Match extracted intent and entities to available tools. Support simultaneous invocation of multiple tools when appropriate.
-3. **Tool Call:** You can call tools if you respond in this format `[{"name": "<tool-name>", "arguments": {"arg1": "value1", "arg2": "value2", ...}}, ...]`
-4. **Tool Result:** content inside `<tool_call_result></tool_call_result>` tags, ordered. Extract and integrate the tool outputs into a **natural-language response**.
+1. *Analyze the user's request* to determine their goal and intent.
+2. *Check if a tool is needed* based on the provided JSON schema of available tools (see below). If no tool applies, respond conversationally.
+3. *If a tool is required*:
+ - Select the *exact tool name* from the schema that best matches the goal.
+ - Extract *all required parameters* from the user’s input. Do not assume defaults unless explicitly allowed by the schema.
+ - Return *only a JSON object* formatted as:
+```json
+[
+    {
+        "name": "<tool-name>",
+        "arguments": <tool-input-args>
+    }
+]
+```
+4. *Validation*: Ensure arguments strictly match the schema types/requirements. Never invent arguments or tools.
+5. Example interaction:
+ - *User*: What's the weather in Tokyo?
+ - *Tool schema*: Includes a `getWeather` tool with parameters `location` (string, required) and `unit` (string, optional)
+ - *Your Response*:
+ ```json
+ {"name": "getWeather", "arguments": {"location": "Tokyo", "unit": "celcius" } }
+ ```
+6. Tool outputs will be returned within `<tool_call_result></tool_call_result>` XML tags. Use the outputs to answer user question in **natural language**.
 
 ## Available Tools Definitions:
 
 {% for tool in tools -%}
-`{"name": "{{ tool.function.name }}", "description": "{{ tool.function.description }}", "parameters": {{ tool.function.parameters.properties | tojson }}}`
+`{"name": "{{ tool.function.name }}", "description": "{{ tool.function.description }}", "parameters": {{ tool.function.parameters | tojson }}}`
 {% endfor -%}
-{%- endmacro -%}
-{%- macro tool_template(function) -%}
-{"type": "function", "function": {{ function | tojson }}}
 {%- endmacro -%}
 {%- macro tool_call_template(function) -%}
 {"name": "{{ function['name'] }}", "arguments": {{ function['arguments'] | tojson }}}
@@ -36,7 +51,7 @@
         {%- endif -%}
         {{ '<start_of_turn>' + role + '\n' }}
     {%- else -%}
-        {{ '\n' }}
+        {{ '\n---\n' }}
     {%- endif -%}
     {%- if message['role'] == 'tool' -%}
         <tool_call_result>{{ message['content'] }}</tool_call_result>
